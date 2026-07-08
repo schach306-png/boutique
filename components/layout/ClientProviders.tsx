@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useStore } from '@/lib/store/useStore';
 import Header from './Header';
 import Footer from './Footer';
 import FloatingWhatsapp from '../ui/FloatingWhatsapp';
@@ -9,6 +10,9 @@ import FloatingWhatsapp from '../ui/FloatingWhatsapp';
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const currentUser = useStore((state) => state.currentUser);
+  
   const isNoHeaderFooterRoute = pathname === '/' || pathname?.startsWith('/admin');
 
   useEffect(() => {
@@ -20,6 +24,13 @@ export default function ClientProviders({ children }: { children: React.ReactNod
       document.documentElement.classList.add('dark');
     }
   }, []);
+
+  // Customer Route Guard: Redirect unauthenticated customers back to gate
+  useEffect(() => {
+    if (mounted && !currentUser && !isNoHeaderFooterRoute) {
+      router.push('/');
+    }
+  }, [currentUser, pathname, mounted, isNoHeaderFooterRoute, router]);
 
   if (!mounted) {
     // Elegant loading screen

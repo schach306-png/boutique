@@ -86,12 +86,7 @@ export const useStore = create<StoreState>()(
       bookings: INITIAL_BOOKINGS,
       orders: INITIAL_ORDERS,
       coupons: INITIAL_COUPONS,
-      currentUser: {
-        name: 'Guest User',
-        email: 'guest@example.com',
-        role: 'customer',
-        addresses: ['123 Silk Road, Handloom Sector, Noida']
-      },
+      currentUser: null,
       cart: [],
       wishlist: [],
       recentlyViewed: [],
