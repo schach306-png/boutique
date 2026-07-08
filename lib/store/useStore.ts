@@ -28,6 +28,7 @@ interface StoreState {
   
   // User Session
   currentUser: User | null;
+  isAuthenticated: boolean;
   
   // E-commerce state
   cart: CartItem[];
@@ -73,6 +74,7 @@ interface StoreState {
   updateProfile: (name: string, email: string) => void;
   addAddress: (address: string) => void;
   removeAddress: (index: number) => void;
+  setAuthenticated: (val: boolean) => void;
   
   // Recently Viewed
   addRecentlyViewed: (productId: string) => void;
@@ -87,6 +89,7 @@ export const useStore = create<StoreState>()(
       orders: INITIAL_ORDERS,
       coupons: INITIAL_COUPONS,
       currentUser: null,
+      isAuthenticated: false,
       cart: [],
       wishlist: [],
       recentlyViewed: [],
@@ -241,6 +244,7 @@ export const useStore = create<StoreState>()(
         // If logging in as admin, switch user
         if (email.toLowerCase().includes('admin')) {
           return {
+            isAuthenticated: true,
             currentUser: {
               name: 'Owner Admin',
               email: 'admin@threadsandtraditions.com',
@@ -250,6 +254,7 @@ export const useStore = create<StoreState>()(
           };
         }
         return {
+          isAuthenticated: true,
           currentUser: {
             name: email.split('@')[0],
             email,
@@ -259,7 +264,9 @@ export const useStore = create<StoreState>()(
         };
       }),
       
-      logout: () => set({ currentUser: null, cart: [], wishlist: [] }),
+      logout: () => set({ currentUser: null, isAuthenticated: false, cart: [], wishlist: [] }),
+
+      setAuthenticated: (val) => set({ isAuthenticated: val }),
       
       updateProfile: (name, email) => set((state) => ({
         currentUser: state.currentUser ? { ...state.currentUser, name, email } : null
@@ -293,7 +300,8 @@ export const useStore = create<StoreState>()(
         bookings: state.bookings,
         orders: state.orders,
         coupons: state.coupons,
-        currentUser: state.currentUser,
+        // NOTE: currentUser and isAuthenticated are intentionally NOT persisted
+        // so that auth state always resets on page load, forcing users to sign in each session.
         cart: state.cart,
         wishlist: state.wishlist,
         recentlyViewed: state.recentlyViewed

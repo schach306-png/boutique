@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 export default function EntranceGatePage() {
   const router = useRouter();
   const currentUser = useStore((state) => state.currentUser);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   const login = useStore((state) => state.login);
   const updateProfile = useStore((state) => state.updateProfile);
 
@@ -23,16 +24,16 @@ export default function EntranceGatePage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
-  // If already logged in, redirect to storefront homepage
+  // If already authenticated, redirect to the right place
   useEffect(() => {
-    if (currentUser) {
+    if (isAuthenticated && currentUser) {
       if (currentUser.role === 'admin') {
         router.push('/admin');
       } else {
         router.push('/storefront');
       }
     }
-  }, [currentUser, router]);
+  }, [isAuthenticated, currentUser, router]);
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();

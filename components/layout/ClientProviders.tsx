@@ -11,7 +11,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const currentUser = useStore((state) => state.currentUser);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   
   const isNoHeaderFooterRoute = pathname === '/' || pathname?.startsWith('/admin');
 
@@ -27,10 +27,10 @@ export default function ClientProviders({ children }: { children: React.ReactNod
 
   // Customer Route Guard: Redirect unauthenticated customers back to gate
   useEffect(() => {
-    if (mounted && !currentUser && !isNoHeaderFooterRoute) {
+    if (mounted && !isAuthenticated && !isNoHeaderFooterRoute) {
       router.push('/');
     }
-  }, [currentUser, pathname, mounted, isNoHeaderFooterRoute, router]);
+  }, [isAuthenticated, pathname, mounted, isNoHeaderFooterRoute, router]);
 
   if (!mounted) {
     // Elegant loading screen
