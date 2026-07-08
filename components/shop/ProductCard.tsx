@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store/useStore';
 import { Heart, ShoppingCart, Eye, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const wishlist = useStore((state) => state.wishlist);
   const addToCart = useStore((state) => state.addToCart);
@@ -37,10 +39,17 @@ export default function ProductCard({ product }: ProductCardProps) {
     toast.success(`Added ${product.name} (Size: ${defaultSize}) to cart!`);
   };
 
+  const handleCardClick = () => {
+    router.push(`/product/${product.id}`);
+  };
+
   return (
     <div className="group relative bg-white dark:bg-[#1A1816] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-maroon/5 flex flex-col h-full">
-      {/* Product Image Panel */}
-      <Link href={`/product/${product.id}`} className="relative block overflow-hidden aspect-[3/4] bg-maroon/5">
+      {/* Product Image Panel (div instead of Link to prevent nested anchor tag warnings) */}
+      <div 
+        onClick={handleCardClick}
+        className="relative block overflow-hidden aspect-[3/4] bg-maroon/5 cursor-pointer"
+      >
         {/* Discount Badge */}
         {product.discount && (
           <span className="absolute top-3 left-3 bg-maroon text-primary-bg text-[10px] font-serif font-bold tracking-widest px-2.5 py-1 rounded uppercase z-10">
@@ -92,13 +101,16 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Action Overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-20">
-          <Link
-            href={`/product/${product.id}`}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/product/${product.id}`);
+            }}
             className="p-3 bg-white dark:bg-[#1A1816] text-maroon dark:text-gold rounded-full shadow-lg hover:scale-110 transition-transform"
             title="Quick View"
           >
             <Eye className="h-5 w-5" />
-          </Link>
+          </button>
           <button
             onClick={handleAddToCart}
             className="p-3 bg-maroon text-primary-bg rounded-full shadow-lg hover:scale-110 transition-transform"
@@ -107,7 +119,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             <ShoppingCart className="h-5 w-5" />
           </button>
         </div>
-      </Link>
+      </div>
 
       {/* Info Panel */}
       <div className="p-4 flex flex-col flex-grow">
