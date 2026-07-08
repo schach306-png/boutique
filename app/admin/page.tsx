@@ -100,6 +100,64 @@ export default function AdminDashboardPage() {
 
       </div>
 
+      {/* Supplier Settlements & Bank Account Payout Ledger (Flipkart / Meesho Style) */}
+      <div className="bg-white dark:bg-[#1A1816] rounded-xl border border-maroon/5 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-maroon/5 pb-4">
+          <div>
+            <h3 className="font-serif font-bold text-base text-maroon dark:text-gold flex items-center gap-2">
+              💳 Bank Account Settlements & Supplier Payouts
+            </h3>
+            <p className="text-[10px] text-charcoal/50 mt-0.5">Linked Merchant Bank: State Bank of India (A/C: *******8903 - SHALINI SHARMA)</p>
+          </div>
+          <span className="bg-emerald-500/10 text-emerald-500 font-bold px-3 py-1 rounded text-[9px] uppercase tracking-wider font-sans">
+            Direct UPI Settlement Active
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+          <div className="bg-primary-bg dark:bg-[#12100E] p-4 rounded-lg border border-maroon/5">
+            <span className="text-[10px] text-charcoal/40 font-bold block mb-1">Total Disbursed Balance</span>
+            <strong className="text-charcoal dark:text-primary-bg text-lg font-sans">₹{Math.max(0, Number((revenue * 0.95).toFixed(2)))}</strong>
+            <span className="text-[9px] text-charcoal/40 block mt-1">Net of 5% platform commission fees</span>
+          </div>
+          <div className="bg-primary-bg dark:bg-[#12100E] p-4 rounded-lg border border-maroon/5">
+            <span className="text-[10px] text-charcoal/40 font-bold block mb-1">Pending Weekly Settlement</span>
+            <strong className="text-charcoal dark:text-primary-bg text-lg font-sans">₹{orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').reduce((acc, o) => acc + (o.total * 0.95), 0).toFixed(2)}</strong>
+            <span className="text-[9px] text-charcoal/40 block mt-1">To be credited on next Wednesday</span>
+          </div>
+          <div className="bg-primary-bg dark:bg-[#12100E] p-4 rounded-lg border border-maroon/5">
+            <span className="text-[10px] text-charcoal/40 font-bold block mb-1">Last Settled Transfer</span>
+            <strong className="text-emerald-500 text-lg font-sans">₹3,983.25</strong>
+            <span className="text-[9px] text-charcoal/40 block mt-1">Transferred on 05 July 2026 (Ref: TXN-9830)</span>
+          </div>
+        </div>
+
+        {/* Settled Orders List */}
+        <div className="text-xs font-sans">
+          <p className="font-bold text-charcoal/50 mb-3 uppercase tracking-wider text-[10px]">Recent Payout Transactions Ledger</p>
+          <div className="space-y-2">
+            {activeOrders.map((o) => (
+              <div key={o.id} className="flex justify-between items-center p-3 bg-primary-bg/20 rounded border border-maroon/5 text-[11px]">
+                <div>
+                  <strong>{o.id}</strong>
+                  <span className="text-charcoal/40 ml-2">Settlement to SBI</span>
+                </div>
+                <div className="flex gap-4 items-center">
+                  <span className="text-charcoal/50">Gross: ₹{o.total}</span>
+                  <span className="text-charcoal/40">|</span>
+                  <span className="text-charcoal/50 font-bold">Commission (5%): -₹{(o.total * 0.05).toFixed(2)}</span>
+                  <span className="text-charcoal/40">|</span>
+                  <strong className="text-emerald-500">Net Credit: ₹{(o.total * 0.95).toFixed(2)}</strong>
+                  <span className="bg-emerald-500/10 text-emerald-500 text-[8px] font-bold py-0.5 px-1.5 rounded uppercase font-sans">
+                    Settled
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Bookings Panel */}

@@ -19,7 +19,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (!currentUser || currentUser.role !== 'admin') {
+      router.push('/admin/login');
+    }
+  }, [currentUser, router]);
 
   if (!mounted) return null;
 
@@ -30,18 +33,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 bg-red-500/10 text-red-500 rounded-full mb-4">
           <AlertCircle className="h-10 w-10" />
         </div>
-        <h2 className="font-serif text-2xl font-bold mb-2">Access Denied</h2>
+        <h2 className="font-serif text-2xl font-bold mb-2">Redirecting...</h2>
         <p className="text-xs text-charcoal/60 dark:text-primary-bg/60 max-w-sm mb-6 leading-relaxed">
-          This area is restricted to Threads & Traditions boutique owners. Please log in with an administrator email.
+          Redirecting to Threads & Traditions Seller Hub Login...
         </p>
-        <div className="flex gap-4">
-          <Link href="/account" className="bg-maroon hover:bg-maroon/90 text-primary-bg py-2.5 px-6 rounded-lg font-serif tracking-widest uppercase text-xs font-bold transition-all shadow">
-            Sign In As Admin
-          </Link>
-          <Link href="/" className="bg-white hover:bg-primary-bg text-maroon border border-maroon/20 py-2.5 px-6 rounded-lg font-serif tracking-widest uppercase text-xs font-bold transition-all shadow">
-            Back to Storefront
-          </Link>
-        </div>
       </div>
     );
   }
