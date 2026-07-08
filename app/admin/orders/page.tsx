@@ -1,15 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useStore } from '@/lib/store/useStore';
+import React, { useState, useEffect } from 'react';
 import { Truck, Check, X, Eye, IndianRupee, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminOrdersPage() {
-  const orders = useStore((state) => state.orders);
-  const updateOrderStatus = useStore((state) => state.updateOrderStatus);
-
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const fetchOrders = () => {
+    fetch('/api/orders')
+      .then((res) => res.json())
+      .then((data) => {
+        setOrders(data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter === 'all') return true;
@@ -17,9 +32,26 @@ export default function AdminOrdersPage() {
   });
 
   const handleStatusChange = (id: string, status: any) => {
-    updateOrderStatus(id, status);
-    toast.success(`Order ${id} status updated to ${status}`);
+    fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Order status updated to ${status}`);
+        fetchOrders();
+      })
+      .catch(() => toast.error('Failed to update order status'));
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -73,7 +105,7 @@ export default function AdminOrdersPage() {
                       <span className="text-[10px] text-charcoal/40">{new Date(o.createdAt).toLocaleDateString()}</span>
                     </td>
                     <td className="py-4 max-w-[200px] truncate">
-                      {o.items.map((item, idx) => (
+                      {o.items.map((item: any, idx: number) => (
                         <span key={idx} className="block text-[10px] text-charcoal/70 truncate">
                           {item.productName} ({item.size}) x{item.quantity}
                         </span>

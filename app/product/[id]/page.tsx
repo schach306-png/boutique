@@ -9,6 +9,7 @@ import {
   Star, Heart, ShoppingBag, ArrowLeft, Ruler, CheckCircle, 
   AlertTriangle, Truck, RotateCcw, ShieldCheck, Share2 
 } from 'lucide-react';
+import { Product } from '@/lib/data/mockDb';
 import toast from 'react-hot-toast';
 
 export default function ProductDetailPage() {
@@ -16,17 +17,40 @@ export default function ProductDetailPage() {
   const params = useParams();
   const productId = params?.id as string;
 
-  const products = useStore((state) => state.products);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const cart = useStore((state) => state.cart);
   const addToCart = useStore((state) => state.addToCart);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const wishlist = useStore((state) => state.wishlist);
   const addRecentlyViewed = useStore((state) => state.addRecentlyViewed);
   const recentlyViewedIds = useStore((state) => state.recentlyViewed);
-  const addReview = useStore((state) => state.addReview);
 
-  // Find product
-  const product = products.find(p => p.id === productId);
+  // Fetch product detail and products catalog
+  useEffect(() => {
+    if (!productId) return;
+    setLoading(true);
+    
+    // Fetch product detail
+    fetch(`/api/products/${productId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setProduct(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+
+    // Fetch all products for related/recently viewed
+    fetch('/api/products')
+      .then((res) => res.json())
+      .then((data) => setProducts(data))
+      .catch((err) => console.error(err));
+  }, [productId]);
 
   // Gallery Active Image
   const [activeImgIndex, setActiveImgIndex] = useState(0);
@@ -47,6 +71,14 @@ export default function ProductDetailPage() {
       addRecentlyViewed(product.id);
     }
   }, [product, addRecentlyViewed]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F4EE]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -85,18 +117,41 @@ export default function ProductDetailPage() {
     router.push('/checkout');
   };
 
-  // Handle Review Submit
+  // Handle Review Submit (POST to API)
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewName.trim() || !reviewComment.trim()) {
       toast.error('Please fill out all review fields');
       return;
     }
-    addReview(product.id, reviewName, reviewRating, reviewComment);
-    toast.success('Thank you! Your review has been published.');
-    setReviewName('');
-    setReviewComment('');
-    setReviewRating(5);
+    fetch(`/api/products/${product.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: reviewName,
+        rating: reviewRating,
+        comment: reviewComment,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to submit review');
+        return res.json();
+      })
+      .then((newReview) => {
+        toast.success('Thank you! Your review has been published.');
+        // Append review to local state and update average rating
+        const reviews = [newReview, ...product.reviews];
+        const avgRating = Number((reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1));
+        setProduct({ ...product, reviews, rating: avgRating });
+        
+        setReviewName('');
+        setReviewComment('');
+        setReviewRating(5);
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error('Failed to submit review. Please try again.');
+      });
   };
 
   // Get Related Products (same category, excluding current)

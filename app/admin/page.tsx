@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { useStore } from '@/lib/store/useStore';
+import React, { useState, useEffect } from 'react';
 import { 
   IndianRupee, ShoppingBag, Scissors, AlertTriangle, 
   Check, X, Eye, TrendingUp, CalendarDays 
@@ -9,12 +8,32 @@ import {
 import toast from 'react-hot-toast';
 
 export default function AdminDashboardPage() {
-  const orders = useStore((state) => state.orders);
-  const bookings = useStore((state) => state.bookings);
-  const products = useStore((state) => state.products);
-  
-  const updateBookingStatus = useStore((state) => state.updateBookingStatus);
-  const updateOrderStatus = useStore((state) => state.updateOrderStatus);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDashboardData = () => {
+    Promise.all([
+      fetch('/api/orders').then(res => res.json()),
+      fetch('/api/bookings').then(res => res.json()),
+      fetch('/api/products').then(res => res.json())
+    ])
+      .then(([ordersData, bookingsData, productsData]) => {
+        setOrders(ordersData || []);
+        setBookings(bookingsData || []);
+        setProducts(productsData || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching dashboard data:', err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   // 1. Calculate stats
   const activeOrders = orders.filter(o => o.status !== 'cancelled');
@@ -23,24 +42,68 @@ export default function AdminDashboardPage() {
   const pendingBookings = bookings.filter(b => b.status === 'pending').length;
 
   const handleAcceptBooking = (id: string) => {
-    updateBookingStatus(id, 'accepted');
-    toast.success(`Booking ${id} accepted! Consultation scheduled.`);
+    fetch(`/api/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'accepted' })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Booking accepted! Consultation scheduled.`);
+        fetchDashboardData();
+      })
+      .catch(() => toast.error('Failed to update booking status'));
   };
 
   const handleRejectBooking = (id: string) => {
-    updateBookingStatus(id, 'rejected');
-    toast.success(`Booking ${id} rejected.`);
+    fetch(`/api/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'rejected' })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Booking rejected.`);
+        fetchDashboardData();
+      })
+      .catch(() => toast.error('Failed to update booking status'));
   };
 
   const handleCompleteBooking = (id: string) => {
-    updateBookingStatus(id, 'completed');
-    toast.success(`Booking ${id} marked completed!`);
+    fetch(`/api/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Booking marked completed!`);
+        fetchDashboardData();
+      })
+      .catch(() => toast.error('Failed to update booking status'));
   };
 
   const handleOrderStatusChange = (id: string, status: any) => {
-    updateOrderStatus(id, status);
-    toast.success(`Order ${id} status updated to ${status}`);
+    fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Order status updated to ${status}`);
+        fetchDashboardData();
+      })
+      .catch(() => toast.error('Failed to update order status'));
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

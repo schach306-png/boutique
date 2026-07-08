@@ -10,11 +10,19 @@ import { Product } from '@/lib/data/mockDb';
 function ShopContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const products = useStore((state) => state.products);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Read URL parameters
   const urlCategory = searchParams.get('category') || 'all';
   const urlSearch = searchParams.get('search') || '';
+
+  // Fetch products from database
+  useEffect(() => {
+    fetch('/api/products')
+      .then((res) => res.json())
+      .then((data) => setProducts(data))
+      .catch((err) => console.error('Error fetching products:', err));
+  }, []);
 
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>(urlCategory);

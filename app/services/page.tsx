@@ -13,8 +13,15 @@ function ServicesContent() {
   const searchParams = useSearchParams();
   const preSelectedServiceId = searchParams.get('service') || '';
 
-  const services = useStore((state) => state.services);
-  const addBooking = useStore((state) => state.addBooking);
+  const [services, setServices] = useState<any[]>([]);
+
+  // Fetch tailoring services from database
+  useEffect(() => {
+    fetch('/api/services')
+      .then((res) => res.json())
+      .then((data) => setServices(data))
+      .catch((err) => console.error(err));
+  }, []);
 
   // Categories Filter
   const [activeTab, setActiveTab] = useState<'all' | 'stitching' | 'alteration' | 'finishing'>('all');
@@ -58,30 +65,42 @@ function ServicesContent() {
     const serviceObj = services.find(s => s.id === selectedService);
     if (!serviceObj) return;
 
-    const bookingId = addBooking({
-      customerName,
-      phone,
-      serviceId: selectedService,
-      serviceName: serviceObj.name,
-      preferredDate,
-      preferredTime,
-      notes
-    });
+    fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName,
+        phone,
+        serviceId: selectedService,
+        preferredDate,
+        preferredTime,
+        notes
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Booking failed');
+        return res.json();
+      })
+      .then((newBooking) => {
+        setBookingResult({
+          id: newBooking.id,
+          serviceName: serviceObj.name
+        });
 
-    setBookingResult({
-      id: bookingId,
-      serviceName: serviceObj.name
-    });
-
-    toast.success('Appointment booking submitted!');
-    
-    // Reset Form
-    setCustomerName('');
-    setPhone('');
-    setSelectedService('');
-    setPreferredDate('');
-    setPreferredTime('');
-    setNotes('');
+        toast.success('Appointment booking submitted!');
+        
+        // Reset Form
+        setCustomerName('');
+        setPhone('');
+        setSelectedService('');
+        setPreferredDate('');
+        setPreferredTime('');
+        setNotes('');
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error('Failed to submit booking. Please try again.');
+      });
   };
 
   return (

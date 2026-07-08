@@ -3,24 +3,38 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store/useStore';
+import { useSession } from 'next-auth/react';
 import { CheckCircle2, ChevronRight, CreditCard, Landmark, QrCode, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const currentUser = session?.user;
 
   const cart = useStore((state) => state.cart);
-  const currentUser = useStore((state) => state.currentUser);
-  const placeOrder = useStore((state) => state.placeOrder);
   const clearCart = useStore((state) => state.clearCart);
 
   // Address states
-  const [customerName, setCustomerName] = useState(currentUser?.name || '');
-  const [email, setEmail] = useState(currentUser?.email || '');
+  const [customerName, setCustomerName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('9876543210');
-  const [shippingAddress, setShippingAddress] = useState(currentUser?.addresses[0] || '');
-  const [billingAddress, setBillingAddress] = useState(currentUser?.addresses[0] || '');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
   const [sameAsShipping, setSameAsShipping] = useState(true);
+
+  // Sync user info when session resolves
+  useEffect(() => {
+    if (currentUser) {
+      if (!customerName) setCustomerName(currentUser.name || '');
+      if (!email) setEmail(currentUser.email || '');
+      const userAddrs = (currentUser as any).addresses;
+      if (userAddrs && userAddrs.length > 0) {
+        if (!shippingAddress) setShippingAddress(userAddrs[0]);
+        if (!billingAddress) setBillingAddress(userAddrs[0]);
+      }
+    }
+  }, [currentUser]);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI' | 'Card'>('COD');
@@ -71,26 +85,38 @@ export default function CheckoutPage() {
       size: item.size
     }));
 
-    // Place order in store
-    const newOrderId = placeOrder({
-      customerName,
-      email,
-      phone,
-      shippingAddress,
-      billingAddress,
-      items: orderItems,
-      subtotal,
-      tax: gst,
-      shipping: shippingCost,
-      total: grandTotal,
-      paymentMethod
-    });
-
-    clearCart();
-    sessionStorage.removeItem('appliedCoupon');
-    
-    toast.success('Order placed successfully! 🎉');
-    router.push(`/order-success?orderId=${newOrderId}`);
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName,
+        email,
+        phone,
+        shippingAddress,
+        billingAddress,
+        items: orderItems,
+        subtotal,
+        tax: gst,
+        shipping: shippingCost,
+        total: grandTotal,
+        paymentMethod,
+        userId: currentUser?.id || null
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Order placement failed');
+        return res.json();
+      })
+      .then((newOrder) => {
+        clearCart();
+        sessionStorage.removeItem('appliedCoupon');
+        toast.success('Order placed successfully! 🎉');
+        router.push(`/order-success?orderId=${newOrder.id}`);
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error('Failed to place order. Please try again.');
+      });
   };
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/lib/store/useStore';
 import ProductCard from '@/components/shop/ProductCard';
@@ -11,11 +11,28 @@ import {
 import toast from 'react-hot-toast';
 
 export default function StorefrontPage() {
-  const products = useStore((state) => state.products);
-  const services = useStore((state) => state.services);
+  const [products, setProducts] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/products?featured=true').then((res) => res.json()),
+      fetch('/api/services').then((res) => res.json()),
+    ])
+      .then(([productsData, servicesData]) => {
+        setProducts(productsData || []);
+        setServices(servicesData || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
   
   // Featured products
-  const featuredProducts = products.filter(p => p.featured).slice(0, 4);
+  const featuredProducts = products.slice(0, 4);
 
   // Tailoring services to showcase
   const displayServices = services.slice(0, 4);
@@ -52,6 +69,14 @@ export default function StorefrontPage() {
       date: 'July 2026'
     }
   ];
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F4EE]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full overflow-hidden">

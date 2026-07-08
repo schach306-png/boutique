@@ -1,15 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useStore } from '@/lib/store/useStore';
+import React, { useState, useEffect } from 'react';
 import { Scissors, Check, X, CalendarDays, Eye, RefreshCw, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminBookingsPage() {
-  const bookings = useStore((state) => state.bookings);
-  const updateBookingStatus = useStore((state) => state.updateBookingStatus);
-
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'completed' | 'rejected'>('all');
+
+  const fetchBookings = () => {
+    fetch('/api/bookings')
+      .then((res) => res.json())
+      .then((data) => {
+        setBookings(data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const filteredBookings = bookings.filter((b) => {
     if (statusFilter === 'all') return true;
@@ -17,9 +32,26 @@ export default function AdminBookingsPage() {
   });
 
   const handleStatusChange = (id: string, status: any) => {
-    updateBookingStatus(id, status);
-    toast.success(`Booking ${id} updated to ${status}`);
+    fetch(`/api/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        toast.success(`Booking updated to ${status}`);
+        fetchBookings();
+      })
+      .catch(() => toast.error('Failed to update booking status'));
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

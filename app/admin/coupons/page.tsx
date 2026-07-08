@@ -1,54 +1,96 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useStore } from '@/lib/store/useStore';
+import React, { useState, useEffect } from 'react';
 import { Percent, Trash2, Plus, CalendarDays, Key, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Coupon } from '@/lib/data/mockDb';
 
 export default function AdminCouponsPage() {
-  const coupons = useStore((state) => state.coupons);
-  const addCoupon = useStore((state) => state.addCoupon);
-  const deleteCoupon = useStore((state) => state.deleteCoupon);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Form State
   const [code, setCode] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [value, setValue] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
   const [minSpend, setMinSpend] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+
+  const fetchCoupons = () => {
+    fetch('/api/coupons')
+      .then((res) => res.json())
+      .then((data) => {
+        // Map database model to template structure
+        const mapped = (data || []).map((c: any) => ({
+          code: c.code,
+          discountType: c.type,
+          value: c.discount,
+          expiryDate: '2026-12-31',
+          minSpend: c.minOrder
+        }));
+        setCoupons(mapped);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code || !value || !expiryDate) {
+    if (!code || !value) {
       toast.error('Please fill out all required fields');
       return;
     }
 
-    addCoupon({
-      code: code.trim().toUpperCase(),
-      discountType,
-      value: Number(value),
-      expiryDate,
-      minSpend: minSpend ? Number(minSpend) : undefined
-    });
-
-    toast.success(`Coupon code "${code.trim().toUpperCase()}" created successfully!`);
-
-    // Reset Form
-    setCode('');
-    setDiscountType('percentage');
-    setValue('');
-    setExpiryDate('');
-    setMinSpend('');
+    fetch('/api/coupons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: code.trim().toUpperCase(),
+        type: discountType,
+        discount: Number(value),
+        minOrder: minSpend ? Number(minSpend) : 0,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        toast.success(`Coupon code "${code.trim().toUpperCase()}" created successfully!`);
+        fetchCoupons();
+        
+        // Reset Form
+        setCode('');
+        setDiscountType('percentage');
+        setValue('');
+        setMinSpend('');
+        setExpiryDate('');
+      })
+      .catch(() => toast.error('Failed to create coupon'));
   };
 
   const handleDeleteClick = (couponCode: string) => {
     if (confirm(`Delete coupon code "${couponCode}"?`)) {
-      deleteCoupon(couponCode);
-      toast.success('Coupon code deleted from database');
+      fetch(`/api/coupons?code=${couponCode}`, { method: 'DELETE' })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          toast.success('Coupon code deleted from database');
+          fetchCoupons();
+        })
+        .catch(() => toast.error('Failed to delete coupon'));
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

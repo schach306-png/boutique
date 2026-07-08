@@ -1,16 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store/useStore';
 import { Plus, Trash2, Edit2, ShoppingBag, Ruler, CheckCircle2, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Product } from '@/lib/data/mockDb';
 
 export default function AdminProductsPage() {
-  const products = useStore((state) => state.products);
-  const addProduct = useStore((state) => state.addProduct);
-  const updateProduct = useStore((state) => state.updateProduct);
-  const deleteProduct = useStore((state) => state.deleteProduct);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = () => {
+    fetch('/api/products')
+      .then((res) => res.json())
+      .then((data) => {
+        setProducts(data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   // Form State
   const [isEditing, setIsEditing] = useState(false);
@@ -70,13 +85,31 @@ export default function AdminProductsPage() {
     };
 
     if (isEditing && editingId) {
-      updateProduct(editingId, productFields);
-      toast.success('Product updated successfully! 👗');
-      setIsEditing(false);
-      setEditingId(null);
+      fetch(`/api/products/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productFields),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          toast.success('Product updated successfully! 👗');
+          setIsEditing(false);
+          setEditingId(null);
+          fetchProducts();
+        })
+        .catch(() => toast.error('Failed to update product'));
     } else {
-      addProduct(productFields);
-      toast.success('New product added to catalog stock! 👗');
+      fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productFields),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          toast.success('New product added to catalog stock! 👗');
+          fetchProducts();
+        })
+        .catch(() => toast.error('Failed to add product'));
     }
 
     // Reset Form fields
@@ -135,10 +168,23 @@ export default function AdminProductsPage() {
 
   const handleDeleteClick = (id: string) => {
     if (confirm('Are you sure you want to delete this product from store catalog?')) {
-      deleteProduct(id);
-      toast.success('Product deleted from inventory');
+      fetch(`/api/products/${id}`, { method: 'DELETE' })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          toast.success('Product deleted from inventory');
+          fetchProducts();
+        })
+        .catch(() => toast.error('Failed to delete product'));
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 animate-fade-in">
