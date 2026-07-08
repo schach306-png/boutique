@@ -9,7 +9,7 @@ import FloatingWhatsapp from '../ui/FloatingWhatsapp';
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-  const isAdminRoute = pathname?.startsWith('/admin');
+  const isNoHeaderFooterRoute = pathname === '/' || pathname?.startsWith('/admin');
 
   useEffect(() => {
     setMounted(true);
@@ -36,7 +36,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
     );
   }
 
-  if (isAdminRoute) {
+  if (isNoHeaderFooterRoute) {
     return <>{children}</>;
   }
 

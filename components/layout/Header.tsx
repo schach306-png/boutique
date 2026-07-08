@@ -80,7 +80,10 @@ export default function Header() {
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo & Brand Name */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link 
+            href={currentUser ? (currentUser.role === 'admin' ? '/admin' : '/storefront') : '/'} 
+            className="flex items-center gap-2 group"
+          >
             <span className="font-serif text-2xl sm:text-3xl font-extrabold tracking-tight text-maroon dark:text-gold transition-colors">
               Threads & Traditions
             </span>
@@ -88,7 +91,12 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 font-serif">
-            <Link href="/" className="text-sm font-medium hover:text-maroon dark:hover:text-gold transition-colors">Home</Link>
+            <Link 
+              href={currentUser ? (currentUser.role === 'admin' ? '/admin' : '/storefront') : '/'} 
+              className="text-sm font-medium hover:text-maroon dark:hover:text-gold transition-colors"
+            >
+              Home
+            </Link>
             
             {/* Mega Menu Parent: Shop */}
             <div className="relative group">
