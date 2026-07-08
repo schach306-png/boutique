@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 export default function AdminLoginPage() {
   const router = useRouter();
   const currentUser = useStore((state) => state.currentUser);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   const login = useStore((state) => state.login);
 
   const [email, setEmail] = useState('');
@@ -16,10 +17,10 @@ export default function AdminLoginPage() {
 
   // If already logged in as admin, redirect to admin dashboard
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (isAuthenticated && currentUser?.role === 'admin') {
       router.push('/admin');
     }
-  }, [currentUser, router]);
+  }, [isAuthenticated, currentUser, router]);
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();

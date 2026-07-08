@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useStore } from '@/lib/store/useStore';
 import { 
   LayoutDashboard, ShoppingBag, Scissors, Truck, Percent, 
-  Settings, LogOut, ChevronLeft, ShieldCheck, AlertCircle, Home 
+  Settings, LogOut, Home 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -14,31 +14,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const currentUser = useStore((state) => state.currentUser);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   const logout = useStore((state) => state.logout);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    if (!currentUser || currentUser.role !== 'admin') {
+  }, []);
+
+  // After mount, redirect non-admins away from protected admin pages
+  // BUT leave /admin/login alone — it handles itself
+  useEffect(() => {
+    if (!mounted) return;
+    const isLoginPage = pathname === '/admin/login';
+    if (!isLoginPage && (!isAuthenticated || !currentUser || currentUser.role !== 'admin')) {
       router.push('/admin/login');
     }
-  }, [currentUser, router]);
+  }, [mounted, isAuthenticated, currentUser, pathname, router]);
 
+  // Don't apply sidebar layout to the login page
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
+
+  // Show nothing while checking auth (avoids flash)
   if (!mounted) return null;
 
-  // Authorization Guard
-  if (!currentUser || currentUser.role !== 'admin') {
-    return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-primary-bg dark:bg-[#12100E] p-4 text-center">
-        <div className="p-4 bg-red-500/10 text-red-500 rounded-full mb-4">
-          <AlertCircle className="h-10 w-10" />
-        </div>
-        <h2 className="font-serif text-2xl font-bold mb-2">Redirecting...</h2>
-        <p className="text-xs text-charcoal/60 dark:text-primary-bg/60 max-w-sm mb-6 leading-relaxed">
-          Redirecting to Threads & Traditions Seller Hub Login...
-        </p>
-      </div>
-    );
+  // If not authenticated as admin, render nothing (redirect happening in useEffect)
+  if (!isAuthenticated || !currentUser || currentUser.role !== 'admin') {
+    return null;
   }
 
   return (
@@ -98,7 +102,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <div className="flex gap-2">
             <Link 
-              href="/" 
+              href="/storefront" 
               className="flex-grow flex items-center justify-center gap-1 bg-primary-bg/10 hover:bg-gold hover:text-charcoal py-2 px-3 rounded text-[10px] font-bold uppercase transition-colors"
             >
               <Home className="h-3.5 w-3.5" /> Store
