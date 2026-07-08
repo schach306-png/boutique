@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store/useStore';
+import { useSession, signOut } from 'next-auth/react';
 import ProductCard from '@/components/shop/ProductCard';
 import { 
   User, ShoppingBag, Heart, Calendar, MapPin, 
@@ -12,34 +13,47 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+export default function AccountPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F4EE]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
+      </div>
+    }>
+      <AccountContent />
+    </Suspense>
+  );
+}
+
 function AccountContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'profile';
 
-  const currentUser = useStore((state) => state.currentUser);
-  const products = useStore((state) => state.products);
-  const orders = useStore((state) => state.orders);
-  const bookings = useStore((state) => state.bookings);
+  const { data: session, status } = useSession();
+  const currentUser = session?.user;
+  const userRole = (currentUser as any)?.role;
+  const userEmail = currentUser?.email;
+  const userName = currentUser?.name;
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const wishlistIds = useStore((state) => state.wishlist);
-  const login = useStore((state) => state.login);
-  const logout = useStore((state) => state.logout);
-  const updateProfile = useStore((state) => state.updateProfile);
-  const addAddress = useStore((state) => state.addAddress);
-  const removeAddress = useStore((state) => state.removeAddress);
+
+  // Address local state
+  const [addresses, setAddresses] = useState<string[]>([
+    'Shop 14, Lotus Plaza, Sector 15, Noida, Uttar Pradesh'
+  ]);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // Auth Forms State
-  const [isLoginView, setIsLoginView] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-
   // Profile Edit
-  const [profileName, setProfileName] = useState(currentUser?.name || '');
-  const [profileEmail, setProfileEmail] = useState(currentUser?.email || '');
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
 
   // Address Add
   const [newAddress, setNewAddress] = useState('');
@@ -51,63 +65,56 @@ function AccountContent() {
     }
   }, [defaultTab]);
 
+  // Fetch dashboard data
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.push('/');
+      return;
+    }
+
+    setLoading(true);
+    Promise.all([
+      fetch('/api/products').then((res) => res.json()),
+      fetch('/api/orders').then((res) => res.json()),
+      fetch('/api/bookings').then((res) => res.json()),
+    ])
+      .then(([productsData, ordersData, bookingsData]) => {
+        setProducts(productsData || []);
+        setOrders(ordersData || []);
+        setBookings(bookingsData || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [status, router]);
+
   // Sync profile details when logged in
   useEffect(() => {
     if (currentUser) {
-      setProfileName(currentUser.name);
-      setProfileEmail(currentUser.email);
+      setProfileName(currentUser.name || '');
+      setProfileEmail(currentUser.email || '');
+      // Pull addresses if any exist on the user object
+      const userAddrs = (currentUser as any).addresses;
+      if (userAddrs && userAddrs.length > 0) {
+        setAddresses(userAddrs);
+      }
     }
   }, [currentUser]);
 
-  // Handle Login
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error('Email is required');
-      return;
-    }
-    
-    // Check if admin login
-    if (email.toLowerCase().includes('admin')) {
-      login(email, 'admin');
-      toast.success('Logged in as Store Owner Admin! Opening Dashboard...');
-      router.push('/admin');
-      return;
-    }
-
-    login(email, 'customer');
-    toast.success(`Welcome back, ${email.split('@')[0]}!`);
-    setEmail('');
-    setPassword('');
-  };
-
-  // Handle Register
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !name) {
-      toast.error('All fields are required');
-      return;
-    }
-    login(email, 'customer');
-    updateProfile(name, email);
-    toast.success(`Account created successfully! Welcome, ${name}.`);
-    setEmail('');
-    setName('');
-    setPassword('');
-  };
-
-  // Handle Update Profile
+  // Handle Update Profile (Local confirmation for prototype)
   const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(profileName, profileEmail);
-    toast.success('Profile details updated');
+    toast.success('Profile details updated (local preview)');
   };
 
   // Handle Add Address
   const handleAddAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAddress.trim()) return;
-    addAddress(newAddress.trim());
+    setAddresses([...addresses, newAddress.trim()]);
     toast.success('Address saved successfully');
     setNewAddress('');
   };
@@ -115,149 +122,29 @@ function AccountContent() {
   // Get Wishlist Products
   const wishlistedProducts = products.filter(p => wishlistIds.includes(p.id));
 
-  // Get user specific orders & bookings (mock-filtered by name/role in prototype)
-  const userOrders = currentUser?.role === 'admin' 
+  // Get user specific orders & bookings (filtered by email)
+  const userOrders = userRole === 'admin' 
     ? orders 
-    : orders.filter(o => o.customerName === currentUser?.name || o.email === currentUser?.email);
+    : orders.filter(o => o.email === userEmail);
 
-  const userBookings = currentUser?.role === 'admin'
+  const userBookings = userRole === 'admin'
     ? bookings
-    : bookings.filter(b => b.customerName === currentUser?.name);
+    : bookings.filter(b => b.customerName === userName || b.phone === (currentUser as any).phone);
 
-  // If NOT logged in, show Auth panels
-  if (!currentUser) {
+  if (status === 'loading' || loading) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 animate-fade-in">
-        <div className="bg-white dark:bg-[#1A1816] rounded-xl border border-maroon/5 p-8 shadow-xl">
-          
-          {/* Logo brand */}
-          <div className="text-center mb-8">
-            <span className="font-serif text-2xl font-extrabold text-maroon dark:text-gold">Threads & Traditions</span>
-            <p className="text-xs text-charcoal/50 mt-1 uppercase tracking-widest font-serif font-bold">Studio Circle Account</p>
-          </div>
-
-          {/* Form Tabs */}
-          <div className="grid grid-cols-2 gap-2 mb-6 border-b border-maroon/5 pb-2 font-serif text-xs uppercase tracking-widest font-bold text-center">
-            <button 
-              onClick={() => setIsLoginView(true)}
-              className={`pb-2 transition-colors border-b-2 ${isLoginView ? 'border-maroon text-maroon dark:text-gold dark:border-gold' : 'border-transparent'}`}
-            >
-              Sign In
-            </button>
-            <button 
-              onClick={() => setIsLoginView(false)}
-              className={`pb-2 transition-colors border-b-2 ${!isLoginView ? 'border-maroon text-maroon dark:text-gold dark:border-gold' : 'border-transparent'}`}
-            >
-              Register
-            </button>
-          </div>
-
-          {isLoginView ? (
-            /* Login Form */
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <label className="text-[10px] uppercase font-serif font-bold tracking-wider text-charcoal/50 block mb-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-charcoal/30" />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-primary-bg dark:bg-[#12100E] border border-maroon/10 rounded-lg pl-9 pr-4 py-2.5 text-xs outline-none focus:border-maroon text-charcoal dark:text-primary-bg"
-                    placeholder="Enter email (use 'admin@t.com' for admin dashboard)"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase font-serif font-bold tracking-wider text-charcoal/50 block mb-1">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-charcoal/30" />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-primary-bg dark:bg-[#12100E] border border-maroon/10 rounded-lg pl-9 pr-4 py-2.5 text-xs outline-none focus:border-maroon text-charcoal dark:text-primary-bg"
-                    placeholder="Enter password"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-maroon hover:bg-maroon/90 text-primary-bg py-3.5 rounded-lg font-serif tracking-widest uppercase text-xs font-bold transition-all shadow"
-              >
-                Sign In
-              </button>
-
-              <div className="text-center pt-2 text-[10px] text-charcoal/40 dark:text-primary-bg/40 flex items-center justify-center gap-1">
-                <Sparkles className="h-3 w-3 text-gold" />
-                <span>To test admin panel, log in with an email containing: <strong>admin</strong></span>
-              </div>
-            </form>
-          ) : (
-            /* Register Form */
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div>
-                <label className="text-[10px] uppercase font-serif font-bold tracking-wider text-charcoal/50 block mb-1">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-2.5 h-4 w-4 text-charcoal/30" />
-                  <input 
-                    type="text" 
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-primary-bg dark:bg-[#12100E] border border-maroon/10 rounded-lg pl-9 pr-4 py-2.5 text-xs outline-none focus:border-maroon text-charcoal dark:text-primary-bg"
-                    placeholder="e.g. Rohini Sen"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase font-serif font-bold tracking-wider text-charcoal/50 block mb-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-charcoal/30" />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-primary-bg dark:bg-[#12100E] border border-maroon/10 rounded-lg pl-9 pr-4 py-2.5 text-xs outline-none focus:border-maroon text-charcoal dark:text-primary-bg"
-                    placeholder="Enter email"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase font-serif font-bold tracking-wider text-charcoal/50 block mb-1">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-charcoal/30" />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-primary-bg dark:bg-[#12100E] border border-maroon/10 rounded-lg pl-9 pr-4 py-2.5 text-xs outline-none focus:border-maroon text-charcoal dark:text-primary-bg"
-                    placeholder="Create a password"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-maroon hover:bg-maroon/90 text-primary-bg py-3.5 rounded-lg font-serif tracking-widest uppercase text-xs font-bold transition-all shadow"
-              >
-                Create Account
-              </button>
-            </form>
-          )}
-
-        </div>
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F4EE]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C7A35A]/30 border-t-[#7B2233]"></div>
       </div>
     );
   }
+
+  // Redirect to welcome gate if unauthenticated
+  if (status === 'unauthenticated' || !currentUser) {
+    return null;
+  }
+
+
 
   // Dashboard View (Logged In)
   return (
@@ -271,7 +158,7 @@ function AccountContent() {
           <p className="text-xs text-primary-bg/75 font-sans mt-0.5">Signed in: {currentUser.email}</p>
         </div>
         
-        {currentUser.role === 'admin' && (
+        {userRole === 'admin' && (
           <button 
             onClick={() => router.push('/admin')}
             className="bg-gold hover:bg-gold/90 text-charcoal text-xs font-serif tracking-widest uppercase py-2 px-6 rounded-lg font-bold transition-colors"
@@ -320,9 +207,8 @@ function AccountContent() {
 
           <button
             onClick={() => {
-              logout();
+              signOut({ callbackUrl: '/' });
               toast.success('Logged out successfully');
-              router.push('/');
             }}
             className="w-full flex items-center gap-2.5 px-4 py-3 text-red-500 hover:bg-red-500/5 rounded-lg text-xs font-semibold font-sans transition-all pt-4 border-t border-maroon/5 mt-4"
           >
@@ -411,7 +297,7 @@ function AccountContent() {
 
                       {/* Items */}
                       <div className="p-4 divide-y divide-maroon/5">
-                        {o.items.map((item, idx) => (
+                        {o.items.map((item: any, idx: number) => (
                           <div key={idx} className="py-3 flex justify-between items-center text-xs gap-3">
                             <div>
                               <p className="font-bold text-charcoal dark:text-primary-bg truncate max-w-sm">{item.productName}</p>
@@ -534,15 +420,15 @@ function AccountContent() {
 
               {/* Saved list */}
               <div className="space-y-4">
-                {currentUser.addresses.map((address, idx) => (
+                {addresses.map((address, idx) => (
                   <div key={idx} className="bg-primary-bg dark:bg-[#12100E] border border-maroon/5 p-4 rounded-xl flex justify-between items-center text-xs">
                     <p className="leading-relaxed font-sans max-w-[80%]">{address}</p>
                     <button
                       onClick={() => {
-                        removeAddress(idx);
+                        setAddresses(addresses.filter((_, i) => i !== idx));
                         toast.success('Address deleted');
                       }}
-                      disabled={currentUser.addresses.length === 1}
+                      disabled={addresses.length === 1}
                       className="text-charcoal/30 hover:text-red-500 p-2 disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Delete Address"
                     >
@@ -581,14 +467,3 @@ function AccountContent() {
   );
 }
 
-export default function AccountPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex h-96 items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-maroon/30 border-t-maroon"></div>
-      </div>
-    }>
-      <AccountContent />
-    </Suspense>
-  );
-}
