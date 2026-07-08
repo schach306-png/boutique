@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useStore } from '@/lib/store/useStore';
+import { useSession, signOut } from 'next-auth/react';
 import { 
   LayoutDashboard, ShoppingBag, Scissors, Truck, Percent, 
   Settings, LogOut, Home 
@@ -13,9 +13,7 @@ import toast from 'react-hot-toast';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const currentUser = useStore((state) => state.currentUser);
-  const isAuthenticated = useStore((state) => state.isAuthenticated);
-  const logout = useStore((state) => state.logout);
+  const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -23,14 +21,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   // After mount, redirect non-admins away from protected admin pages
-  // BUT leave /admin/login alone — it handles itself
   useEffect(() => {
     if (!mounted) return;
+    if (status === 'loading') return;
     const isLoginPage = pathname === '/admin/login';
-    if (!isLoginPage && (!isAuthenticated || !currentUser || currentUser.role !== 'admin')) {
+    const userRole = (session?.user as { role?: string })?.role;
+    if (!isLoginPage && (status === 'unauthenticated' || userRole !== 'admin')) {
       router.push('/admin/login');
     }
-  }, [mounted, isAuthenticated, currentUser, pathname, router]);
+  }, [mounted, status, session, pathname, router]);
 
   // Don't apply sidebar layout to the login page
   if (pathname === '/admin/login') {
@@ -38,10 +37,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   // Show nothing while checking auth (avoids flash)
-  if (!mounted) return null;
+  if (!mounted || status === 'loading') return null;
 
+  const userRole = (session?.user as { role?: string })?.role;
   // If not authenticated as admin, render nothing (redirect happening in useEffect)
-  if (!isAuthenticated || !currentUser || currentUser.role !== 'admin') {
+  if (status === 'unauthenticated' || userRole !== 'admin') {
     return null;
   }
 
@@ -110,9 +110,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             
             <button
               onClick={() => {
-                logout();
+                signOut({ callbackUrl: '/' });
                 toast.success('Logged out from admin panel');
-                router.push('/');
               }}
               className="flex-grow flex items-center justify-center gap-1 bg-red-500/20 hover:bg-red-500 text-white py-2 px-3 rounded text-[10px] font-bold uppercase transition-colors"
             >

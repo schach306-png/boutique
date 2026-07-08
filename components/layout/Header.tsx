@@ -4,13 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store/useStore';
+import { signOut } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import { 
   Search, ShoppingBag, Heart, User, Menu, X, Sun, Moon, 
   ChevronDown, Scissors, ShoppingCart, LayoutDashboard 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function Header() {
+export default function Header({ session }: { session?: Session | null }) {
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -20,9 +22,10 @@ export default function Header() {
 
   const cart = useStore((state) => state.cart);
   const wishlist = useStore((state) => state.wishlist);
-  const currentUser = useStore((state) => state.currentUser);
   const products = useStore((state) => state.products);
-  const logout = useStore((state) => state.logout);
+
+  const currentUser = session?.user ?? null;
+  const userRole = (currentUser as { role?: string })?.role;
 
   // Total quantity in cart
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -81,7 +84,7 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo & Brand Name */}
           <Link 
-            href={currentUser ? (currentUser.role === 'admin' ? '/admin' : '/storefront') : '/'} 
+            href={currentUser ? (userRole === 'admin' ? '/admin' : '/storefront') : '/'} 
             className="flex items-center gap-2 group"
           >
             <span className="font-serif text-2xl sm:text-3xl font-extrabold tracking-tight text-maroon dark:text-gold transition-colors">
@@ -92,7 +95,7 @@ export default function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 font-serif">
             <Link 
-              href={currentUser ? (currentUser.role === 'admin' ? '/admin' : '/storefront') : '/'} 
+              href={currentUser ? (userRole === 'admin' ? '/admin' : '/storefront') : '/'} 
               className="text-sm font-medium hover:text-maroon dark:hover:text-gold transition-colors"
             >
               Home
@@ -192,16 +195,16 @@ export default function Header() {
               {currentUser ? (
                 <div className="flex items-center gap-2">
                   <Link 
-                    href={currentUser.role === 'admin' ? '/admin' : '/account'} 
+                    href={userRole === 'admin' ? '/admin' : '/account'} 
                     className="p-2 hover:text-maroon dark:hover:text-gold transition-colors rounded-full hover:bg-maroon/5 flex items-center gap-1"
                     aria-label="User Account"
                   >
-                    {currentUser.role === 'admin' ? <LayoutDashboard className="h-5 w-5 text-maroon dark:text-gold" /> : <User className="h-5 w-5" />}
+                    {userRole === 'admin' ? <LayoutDashboard className="h-5 w-5 text-maroon dark:text-gold" /> : <User className="h-5 w-5" />}
                   </Link>
                   {/* Account hover menu */}
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1A1816] rounded-lg shadow-xl border border-maroon/10 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
                     <p className="px-3 py-1.5 text-xs border-b border-maroon/5 font-semibold font-serif text-maroon dark:text-gold truncate">Hi, {currentUser.name}</p>
-                    {currentUser.role === 'admin' ? (
+                    {userRole === 'admin' ? (
                       <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-maroon/5 rounded transition-colors">
                         <LayoutDashboard className="h-3.5 w-3.5" /> Admin Panel
                       </Link>
@@ -212,9 +215,8 @@ export default function Header() {
                     )}
                     <button 
                       onClick={() => {
-                        logout();
+                        signOut({ callbackUrl: '/' });
                         toast.success('Logged out successfully');
-                        router.push('/');
                       }}
                       className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-500/10 text-red-500 rounded transition-colors"
                     >
